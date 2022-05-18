@@ -1,8 +1,9 @@
 // rg-bicepdemo-poc-eus
-param version string = '7'
-// az group delete -g rg-bicepdemo-poc-eus -y
 // az group create -g rg-bicepdemo-poc-eus -l eastus
+// az group delete -g rg-bicepdemo-poc-eus -y
 // az deployment group create -g rg-bicepdemo-poc-eus --template-file main.bicep
+
+param version string = '3'
 param location string = resourceGroup().location
 param domain string = 'ecloud'
 param project string = 'sol${version}'
@@ -18,12 +19,10 @@ param resourceTags object = {
 
 var suffix = '${domain}-${project}-${env}-${shortloc}'
 var suffixnh = '${domain}${project}${env}${shortloc}'
-//var funcstorage_name = 'stor${suffixnh}001'
-//var lastorage_name = 'stor${suffixnh}002'
 var vnet_name = 'vnet-${suffix}'
 var workspaceId = '/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourcegroups/defaultresourcegroup-eus/providers/microsoft.operationalinsights/workspaces/defaultworkspace-97e6e7ea-a213-4f0e-87e0-ea14b9781c76-eus'
 
-module network 'network/vnet.bicep' = {
+module network 'networking/vnet.bicep' = {
   name: vnet_name
   params: {
     resourceTags: resourceTags
@@ -34,42 +33,31 @@ module network 'network/vnet.bicep' = {
   }
 }
 
-// module bastion 'network/bastion.bicep' = {
-//   name: 'bast-${suffix}'
-//   params: {
-//     bastionName: 'bast-${suffix}'
-//     location: location
-//     resourceTags: resourceTags
-//     bastionSubnetId: network.outputs.subnets[1].id
-//   }
-// }
+module vm 'compute/vm/devvm.bicep' = {
+  name: 'vmdev'
+  params: {
+    location: location
+    user_name: 'alex'
+    user_pwd: 'Fuerte#123456'
+    vm_name: 'vmdev'
+    subnetId: network.outputs.subnets[2].id // vmSubnet
+  }
+}
 
-// module func_storage 'storage/storage.bicep' = {
-//   name: funcstorage_name
-//   params: {
-//     resourceTags: resourceTags
-//     location: location
-//     name: funcstorage_name
-//     vnetId: network.outputs.vnetId
-//     privateLinkSubnetId: network.outputs.privateLinkSubnetId
-//   }
-// }
-
-// module la_storage 'storage/storage.bicep' = {
-//   name: lastorage_name
-//   params: {
-//     resourceTags: resourceTags
-//     location: location
-//     name: lastorage_name
-//     vnetId: network.outputs.vnetId
-//     privateLinkSubnetId: network.outputs.privateLinkSubnetId
-//   }
-// }
+module kv 'keyvault/keyvaultPE.bicep' = {
+  name: 'kv-${suffix}'
+  params: {
+    location: location
+    name: 'kv-${suffix}'
+    vnetId: network.outputs.vnetId
+    peSubnetId: network.outputs.peSubnetId 
+  }
+}
 
 module appconfig 'appconfig/appconfigPE.bicep' = {
-  name: 'acs-${suffix}'
+  name: 'appc-${suffix}'
   params: {
-    name: 'acs-${suffix}'
+    name: 'asc-${suffix}-${uniqueString(resourceGroup().id)}'
     location: location
     vnetId: network.outputs.vnetId
     peSubnetId: network.outputs.peSubnetId
@@ -77,11 +65,11 @@ module appconfig 'appconfig/appconfigPE.bicep' = {
   }
 }
 
-module sql 'sql/sqlPE.bicep' = {
+module sql 'data/sql/sqlPE.bicep' = {
   name: 'sql-${suffix}'
   params: {
     sqlAdministratorLogin: 'dbadmin'
-    sqlname: 'sql${suffixnh}'
+    sqlname: 'sql${suffix}'
     dbname: 'db${suffixnh}'
     location: location
     vnetId: network.outputs.vnetId
@@ -89,7 +77,7 @@ module sql 'sql/sqlPE.bicep' = {
   }
 }
 
-module func 'appservice/funcPE.bicep' = {
+module func 'compute/function/funcPE.bicep' = {
   name: 'func${suffixnh}'
   params: {
     functionAppPlanName: 'asp-func-${suffix}'
@@ -101,5 +89,16 @@ module func 'appservice/funcPE.bicep' = {
     funcBeSubnetId: network.outputs.funcBeSubnetId
     workspaceId: workspaceId
     resourceTags: resourceTags
+  }
+}
+
+module webapp 'compute/webapp/webappPE.bicep' = {
+  name: 'wapp-${suffix}'
+  params: {
+    location: location
+    name: 'wapp-${suffix}'
+    workspaceId: workspaceId
+    beSubnetId: network.outputs.subnets[4].id
+
   }
 }

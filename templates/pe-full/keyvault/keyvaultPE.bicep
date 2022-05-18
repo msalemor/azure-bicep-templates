@@ -1,38 +1,103 @@
-param keyVaultName string
+param name string
 param location string
-param secretName string
-param secretValue string
-param roleAssignmentPrincipalObjectId string
-param virtualNetworkResourceId string
-param subnetResourceId string
+param principalId string = 'fbcbb707-6c31-4630-ad42-81cfea358aa8'
+param vnetId string
+param peSubnetId string
 
-var privateEndpointName = 'peKv'
+var privateEndpointName = 'pe-${name}'
 var privateDnsZoneName = 'privatelink.vaultcore.azure.net'
-var privateEndpointDnsConfigFqdn = '${keyVault.name}.privatelink.vaultcore.azure.net'
 
-var keyVaultSecretsUserRoleDefinitionId = '4633458b-17de-408a-b874-0445c86b69e6'
-
-resource keyVault 'Microsoft.KeyVault/vaults@2021-04-01-preview' = {
-  name: keyVaultName
+resource keyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
+  name: name
   location: location
   properties: {
-    enableRbacAuthorization: true
-    tenantId: tenant().tenantId
     sku: {
-      name: 'standard'
       family: 'A'
+      name: 'standard'
     }
-    networkAcls: {
-      defaultAction: 'Deny'
-      bypass: 'AzureServices'
+    tenantId: tenant().tenantId
+    accessPolicies: [
+      {
+        tenantId: tenant().tenantId
+        objectId: principalId
+        permissions: {
+          keys: [
+            'get'
+            'list'
+            'update'
+            'create'
+            'import'
+            'delete'
+            'recover'
+            'backup'
+            'restore'
+            'getrotationpolicy'
+            'setrotationpolicy'
+            'rotate'
+          ]
+          secrets: [
+            'get'
+            'list'
+            'set'
+            'delete'
+            'recover'
+            'backup'
+            'restore'
+          ]
+          certificates: [
+            'get'
+            'list'
+            'update'
+            'create'
+            'import'
+            'delete'
+            'recover'
+            'backup'
+            'restore'
+            'managecontacts'
+            'manageissuers'
+            'getissuers'
+            'listissuers'
+            'setissuers'
+            'deleteissuers'
+          ]
+        }
+      }
+    ]
+    enabledForDeployment: false
+    enabledForDiskEncryption: false
+    enabledForTemplateDeployment: false
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 90
+    enableRbacAuthorization: false    
+  }
+}
+
+resource PrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: privateDnsZoneName
+  location: 'global'
+  properties: {}
+}
+
+resource sqlPrivateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: PrivateDnsZone
+  name: 'link-${privateDnsZoneName}'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnetId
     }
   }
 }
 
-resource privateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01' = {
+resource PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01' = {
   name: privateEndpointName
   location: location
   properties: {
+    subnet: {
+      id: peSubnetId
+    }
     privateLinkServiceConnections: [
       {
         name: privateEndpointName
@@ -44,61 +109,20 @@ resource privateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01' = {
         }
       }
     ]
-    subnet: {
-      id: subnetResourceId
-    }
-    customDnsConfigs: [
+  }
+}
+
+resource sqlEndpointDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-08-01' = {
+  name: 'sqlDnsZoneGroup'
+  parent: PrivateEndpoint
+  properties: {
+    privateDnsZoneConfigs: [
       {
-        fqdn: privateEndpointDnsConfigFqdn
+        name: 'config'
+        properties: {
+          privateDnsZoneId: PrivateDnsZone.id
+        }
       }
     ]
-  }
-
-  resource privateDnsZoneGroup 'privateDnsZoneGroups' = {
-    name: 'vault-private-dns-zone-group'
-    properties: {
-      privateDnsZoneConfigs: [
-        {
-          name: privateDnsZoneName
-          properties: {
-            privateDnsZoneId: privateDnsZone.id
-          }
-        }
-      ]
-    }
-  }
-}
-
-resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: privateDnsZoneName
-  location: 'global'
-  
-  resource virtualNetworkLink 'virtualNetworkLinks' = {
-    name: 'link_to_vnet'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: virtualNetworkResourceId
-      }
-    }
-  }
-}
-
-resource secret 'Microsoft.KeyVault/vaults/secrets@2021-04-01-preview' = {
-  parent: keyVault
-  name: secretName
-  properties: {
-    value: secretValue
-  }
-}
-
-resource keyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
-  name: guid(keyVaultSecretsUserRoleDefinitionId, roleAssignmentPrincipalObjectId, keyVault.id)
-  scope: keyVault
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleDefinitionId)
-    principalId: roleAssignmentPrincipalObjectId
-    principalType: 'ServicePrincipal'
   }
 }

@@ -95,6 +95,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-08-01' = {
   }
 }
 
+
 // resource publicIp 'Microsoft.Network/publicIpAddresses@2020-05-01' = {
 //   name: 'pip-${bastionName}'
 //   location: location
