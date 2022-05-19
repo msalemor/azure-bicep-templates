@@ -1,0 +1,235 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sites_alemordemoeus_name": {
+            "defaultValue": "alemordemoeus",
+            "type": "String"
+        },
+        "serverfarms_asp_la_demo_eus_externalid": {
+            "defaultValue": "/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourceGroups/rg-bicepdemo3-poc-eus/providers/Microsoft.Web/serverfarms/asp-la-demo-eus",
+            "type": "String"
+        },
+        "virtualNetworks_vnet_ecloud_sol3_poc_eus_externalid": {
+            "defaultValue": "/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourceGroups/rg-bicepdemo3-poc-eus/providers/Microsoft.Network/virtualNetworks/vnet-ecloud-sol3-poc-eus",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2021-03-01",
+            "name": "[parameters('sites_alemordemoeus_name')]",
+            "location": "East US",
+            "tags": {
+                "hidden-link: /app-insights-resource-id": "/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourceGroups/rg-bicepdemo3-poc-eus/providers/Microsoft.Insights/components/aapi-la-bicedemo-eus"
+            },
+            "kind": "functionapp,workflowapp",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "enabled": true,
+                "hostNameSslStates": [
+                    {
+                        "name": "[concat(parameters('sites_alemordemoeus_name'), '.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "hostType": "Standard"
+                    },
+                    {
+                        "name": "[concat(parameters('sites_alemordemoeus_name'), '.scm.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "hostType": "Repository"
+                    }
+                ],
+                "serverFarmId": "[parameters('serverfarms_asp_la_demo_eus_externalid')]",
+                "reserved": false,
+                "isXenon": false,
+                "hyperV": false,
+                "siteConfig": {
+                    "numberOfWorkers": 1,
+                    "acrUseManagedIdentityCreds": false,
+                    "alwaysOn": false,
+                    "ipSecurityRestrictions": [
+                        {
+                            "ipAddress": "Any",
+                            "action": "Allow",
+                            "priority": 1,
+                            "name": "Allow all",
+                            "description": "Allow all access"
+                        }
+                    ],
+                    "scmIpSecurityRestrictions": [
+                        {
+                            "ipAddress": "Any",
+                            "action": "Allow",
+                            "priority": 1,
+                            "name": "Allow all",
+                            "description": "Allow all access"
+                        }
+                    ],
+                    "http20Enabled": false,
+                    "functionAppScaleLimit": 0,
+                    "minimumElasticInstanceCount": 1
+                },
+                "scmSiteAlsoStopped": false,
+                "clientAffinityEnabled": false,
+                "clientCertEnabled": false,
+                "clientCertMode": "Required",
+                "hostNamesDisabled": false,
+                "customDomainVerificationId": "5CE6EA1BFB19B537E530871D972EFEF762DFB1324A2B0CA9FBDEEC74131F6030",
+                "containerSize": 1536,
+                "dailyMemoryTimeQuota": 0,
+                "httpsOnly": true,
+                "redundancyMode": "None",
+                "storageAccountRequired": false,
+                "virtualNetworkSubnetId": "[concat(parameters('virtualNetworks_vnet_ecloud_sol3_poc_eus_externalid'), '/subnets/laBeSubnet')]",
+                "keyVaultReferenceIdentity": "SystemAssigned"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+            "apiVersion": "2021-03-01",
+            "name": "[concat(parameters('sites_alemordemoeus_name'), '/ftp')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_alemordemoeus_name'))]"
+            ],
+            "tags": {
+                "hidden-link: /app-insights-resource-id": "/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourceGroups/rg-bicepdemo3-poc-eus/providers/Microsoft.Insights/components/aapi-la-bicedemo-eus"
+            },
+            "properties": {
+                "allow": true
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+            "apiVersion": "2021-03-01",
+            "name": "[concat(parameters('sites_alemordemoeus_name'), '/scm')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_alemordemoeus_name'))]"
+            ],
+            "tags": {
+                "hidden-link: /app-insights-resource-id": "/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourceGroups/rg-bicepdemo3-poc-eus/providers/Microsoft.Insights/components/aapi-la-bicedemo-eus"
+            },
+            "properties": {
+                "allow": true
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/config",
+            "apiVersion": "2021-03-01",
+            "name": "[concat(parameters('sites_alemordemoeus_name'), '/web')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_alemordemoeus_name'))]"
+            ],
+            "tags": {
+                "hidden-link: /app-insights-resource-id": "/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourceGroups/rg-bicepdemo3-poc-eus/providers/Microsoft.Insights/components/aapi-la-bicedemo-eus"
+            },
+            "properties": {
+                "numberOfWorkers": 1,
+                "defaultDocuments": [
+                    "Default.htm",
+                    "Default.html",
+                    "Default.asp",
+                    "index.htm",
+                    "index.html",
+                    "iisstart.htm",
+                    "default.aspx",
+                    "index.php"
+                ],
+                "netFrameworkVersion": "v6.0",
+                "requestTracingEnabled": false,
+                "remoteDebuggingEnabled": false,
+                "remoteDebuggingVersion": "VS2019",
+                "httpLoggingEnabled": false,
+                "acrUseManagedIdentityCreds": false,
+                "logsDirectorySizeLimit": 35,
+                "detailedErrorLoggingEnabled": false,
+                "publishingUsername": "$alemordemoeus",
+                "scmType": "None",
+                "use32BitWorkerProcess": true,
+                "webSocketsEnabled": false,
+                "alwaysOn": false,
+                "managedPipelineMode": "Integrated",
+                "virtualApplications": [
+                    {
+                        "virtualPath": "/",
+                        "physicalPath": "site\\wwwroot",
+                        "preloadEnabled": false
+                    }
+                ],
+                "loadBalancing": "LeastRequests",
+                "experiments": {
+                    "rampUpRules": []
+                },
+                "autoHealEnabled": false,
+                "vnetName": "46bd61af-1838-40fb-937a-9449ec94094e_laBeSubnet",
+                "vnetRouteAllEnabled": true,
+                "vnetPrivatePortsCount": 0,
+                "cors": {
+                    "supportCredentials": false
+                },
+                "localMySqlEnabled": false,
+                "managedServiceIdentityId": 19205,
+                "ipSecurityRestrictions": [
+                    {
+                        "ipAddress": "Any",
+                        "action": "Allow",
+                        "priority": 1,
+                        "name": "Allow all",
+                        "description": "Allow all access"
+                    }
+                ],
+                "scmIpSecurityRestrictions": [
+                    {
+                        "ipAddress": "Any",
+                        "action": "Allow",
+                        "priority": 1,
+                        "name": "Allow all",
+                        "description": "Allow all access"
+                    }
+                ],
+                "scmIpSecurityRestrictionsUseMain": false,
+                "http20Enabled": false,
+                "minTlsVersion": "1.2",
+                "scmMinTlsVersion": "1.0",
+                "ftpsState": "FtpsOnly",
+                "preWarmedInstanceCount": 1,
+                "functionAppScaleLimit": 0,
+                "functionsRuntimeScaleMonitoringEnabled": false,
+                "minimumElasticInstanceCount": 1,
+                "azureStorageAccounts": {}
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/hostNameBindings",
+            "apiVersion": "2021-03-01",
+            "name": "[concat(parameters('sites_alemordemoeus_name'), '/', parameters('sites_alemordemoeus_name'), '.azurewebsites.net')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_alemordemoeus_name'))]"
+            ],
+            "properties": {
+                "siteName": "alemordemoeus",
+                "hostNameType": "Verified"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/virtualNetworkConnections",
+            "apiVersion": "2021-03-01",
+            "name": "[concat(parameters('sites_alemordemoeus_name'), '/46bd61af-1838-40fb-937a-9449ec94094e_laBeSubnet')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_alemordemoeus_name'))]"
+            ],
+            "properties": {
+                "vnetResourceId": "[concat(parameters('virtualNetworks_vnet_ecloud_sol3_poc_eus_externalid'), '/subnets/laBeSubnet')]",
+                "isSwift": true
+            }
+        }
+    ]
+}

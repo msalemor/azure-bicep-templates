@@ -3,7 +3,6 @@ param vnetName string
 param resourceTags object
 param vnetOctates string = '10.25'
 param vnetAddressSpace string = '${vnetOctates}.0.0/16'
-param bastionName string
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-08-01' = {
   name: vnetName
@@ -94,38 +93,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-08-01' = {
     ]
   }
 }
-
-
-// resource publicIp 'Microsoft.Network/publicIpAddresses@2020-05-01' = {
-//   name: 'pip-${bastionName}'
-//   location: location
-//   sku: {
-//     name: 'Standard'
-//   }
-//   properties: {
-//     publicIPAllocationMethod: 'Static'
-//   }
-// }
-
-// resource bastionHost 'Microsoft.Network/bastionHosts@2021-08-01' = {
-//   name: bastionName
-//   location: location
-//   properties: {
-//     ipConfigurations: [
-//       {
-//         name: 'IpConf'
-//         properties: {
-//           subnet: {
-//             id: vnet.properties.subnets[1].id
-//           }
-//           publicIPAddress: {
-//             id: publicIp.id
-//           }
-//         }
-//       }
-//     ]
-//   }
-// }
 
 output vnet object = vnet
 output vnetId string = vnet.id

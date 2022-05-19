@@ -23,104 +23,27 @@ param functionAppPlanSku string = 'EP1'
 
 @description('The name of the backend Azure storage account used by the Azure Function app.')
 param functionStorageAccountName string
-param vnetId string
 param peSubnetId string
 param funcBeSubnetId string
 param workspaceId string
 param resourceTags object
+param storageFileDnsZoneId string 
+param storageBlobDnsZoneId string 
+param storageTableDnsZoneId string
+param storageQueueDnsZoneId string
 
 
 var applicationInsightsName = 'appi-${functionAppName}'
-
-var privateStorageFileDnsZoneName = 'privatelink.file.${environment().suffixes.storage}'
 var privateEndpointStorageFileName = 'pe-${storageAccount.name}-file'
-
-var privateStorageTableDnsZoneName = 'privatelink.table.${environment().suffixes.storage}'
 var privateEndpointStorageTableName = 'pe-${storageAccount.name}-table'
-
-var privateStorageBlobDnsZoneName = 'privatelink.blob.${environment().suffixes.storage}'
 var privateEndpointStorageBlobName = 'pe-${storageAccount.name}-blob'
-
-var privateStorageQueueDnsZoneName = 'privatelink.queue.${environment().suffixes.storage}'
 var privateEndpointStorageQueueName = 'pe-${storageAccount.name}-queue'
-
 var functionContentShareName = 'function-content-share'
 
 // The term "reserved" is used by ARM to indicate if the hosting plan is a Linux or Windows-based plan.
 // A value of true indicated Linux, while a value of false indicates Windows.
 // See https://docs.microsoft.com/en-us/azure/templates/microsoft.web/serverfarms?tabs=json#appserviceplanproperties-object.
 var isReserved = (functionPlanOS == 'Linux') ? true : false
-
-
-// -- Private DNS Zones --
-resource storageFileDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: privateStorageFileDnsZoneName
-  location: 'global'
-}
-
-resource storageBlobDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: privateStorageBlobDnsZoneName
-  location: 'global'
-}
-
-resource storageQueueDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: privateStorageQueueDnsZoneName
-  location: 'global'
-}
-
-resource storageTableDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: privateStorageTableDnsZoneName
-  location: 'global'
-}
-
-// -- Private DNS Zone Links --
-resource storageFileDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  parent: storageFileDnsZone
-  name: '${storageFileDnsZone.name}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnetId
-    }
-  }
-}
-
-resource storageBlobDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  parent: storageBlobDnsZone
-  name: '${storageBlobDnsZone.name}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnetId
-    }
-  }
-}
-
-resource storageTableDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  parent: storageTableDnsZone
-  name: '${storageTableDnsZone.name}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnetId
-    }
-  }
-}
-
-resource storageQueueDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  parent: storageQueueDnsZone
-  name: '${storageQueueDnsZone.name}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnetId
-    }
-  }
-}
 
 // -- Private DNS Zone Groups --
 resource storageFilePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = {
@@ -131,7 +54,7 @@ resource storageFilePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/priv
       {
         name: 'config'
         properties: {
-          privateDnsZoneId: storageFileDnsZone.id
+          privateDnsZoneId: storageFileDnsZoneId
         }
       }
     ]
@@ -146,7 +69,7 @@ resource storageBlobPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/priv
       {
         name: 'config'
         properties: {
-          privateDnsZoneId: storageBlobDnsZone.id
+          privateDnsZoneId: storageBlobDnsZoneId
         }
       }
     ]
@@ -161,7 +84,7 @@ resource storageTablePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/pri
       {
         name: 'config'
         properties: {
-          privateDnsZoneId: storageTableDnsZone.id
+          privateDnsZoneId: storageTableDnsZoneId
         }
       }
     ]
@@ -176,7 +99,7 @@ resource storageQueuePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/pri
       {
         name: 'config'
         properties: {
-          privateDnsZoneId: storageQueueDnsZone.id
+          privateDnsZoneId: storageQueueDnsZoneId
         }
       }
     ]
@@ -278,9 +201,11 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
   tags: resourceTags
   kind: 'StorageV2'
   sku: {
-    name: 'Standard_GRS'
+    name: 'Standard_LRS'
   }
   properties: {
+    supportsHttpsTrafficOnly: true
+    minimumTlsVersion: 'TLS1_2'
     networkAcls: {
       bypass: 'None'
       defaultAction: 'Deny'
@@ -330,12 +255,6 @@ resource functionApp 'Microsoft.Web/sites@2021-01-01' = {
     storageBlobPrivateDnsZoneGroup
     storageQueuePrivateDnsZoneGroup
     storageTablePrivateDnsZoneGroup
-
-    storageBlobDnsZoneLink
-    storageQueueDnsZoneLink
-    storageTableDnsZoneLink
-    storageQueueDnsZoneLink
-
     functionContentShare
   ]
   properties: {

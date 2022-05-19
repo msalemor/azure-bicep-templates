@@ -9,6 +9,7 @@ param domain string = 'ecloud'
 param project string = 'sol${version}'
 param shortloc string = 'eus'
 param env string = 'poc'
+param epoch int = dateTimeToEpoch(dateTimeAdd(utcNow(), 'P1Y'))
 
 param resourceTags object = {
   Application: '${domain}-${project}'
@@ -28,21 +29,39 @@ module network 'networking/vnet.bicep' = {
     resourceTags: resourceTags
     vnetName: vnet_name
     location: location
-    bastionName: 'bast-${suffix}'
     vnetOctates: '10.2${version}'
   }
 }
 
-module vm 'compute/vm/devvm.bicep' = {
-  name: 'vmdev'
+module privateDNS 'networking/dns/privateDNS.bicep' = {
+  name: 'privateDNS'
   params: {
-    location: location
-    user_name: 'alex'
-    user_pwd: 'Fuerte#123456'
-    vm_name: 'vmdev'
-    subnetId: network.outputs.subnets[2].id // vmSubnet
+    vnetId: network.outputs.vnetId
   }
 }
+
+// var AzureBastionSubnetIndex = 1
+// module bastion 'networking/bastion.bicep' = {
+//   name: 'bast-${suffix}'
+//   params: {
+//     location: location
+//     bastionName: 'bast-${suffix}'    
+//     bastionSubnetId: network.outputs.subnets[AzureBastionSubnetIndex].id
+//     resourceTags: resourceTags
+//   }
+// }
+
+// var vmSubnetIndex = 2
+// module vm 'compute/vm/devvm.bicep' = {
+//   name: 'vmdev'
+//   params: {
+//     location: location
+//     user_name: 'alex'
+//     user_pwd: 'Fuerte#123456'
+//     vm_name: 'vmdev'
+//     subnetId: network.outputs.subnets[vmSubnetIndex].id // vmSubnet
+//   }
+// }
 
 module kv 'keyvault/keyvaultPE.bicep' = {
   name: 'kv-${suffix}'
@@ -57,7 +76,7 @@ module kv 'keyvault/keyvaultPE.bicep' = {
 module appconfig 'appconfig/appconfigPE.bicep' = {
   name: 'appc-${suffix}'
   params: {
-    name: 'asc-${suffix}-${uniqueString(resourceGroup().id)}'
+    name: 'asc-${suffix}-${epoch}'
     location: location
     vnetId: network.outputs.vnetId
     peSubnetId: network.outputs.peSubnetId
@@ -84,21 +103,56 @@ module func 'compute/function/funcPE.bicep' = {
     functionAppName: 'func${suffixnh}'
     functionStorageAccountName: 'strfnc${suffixnh}'
     location: location
-    vnetId: network.outputs.vnetId
     peSubnetId: network.outputs.peSubnetId
     funcBeSubnetId: network.outputs.funcBeSubnetId
     workspaceId: workspaceId
     resourceTags: resourceTags
+    storageFileDnsZoneId: privateDNS.outputs.storageFileDnsZoneId
+    storageBlobDnsZoneId: privateDNS.outputs.storageBlobDnsZoneId
+    storageQueueDnsZoneId: privateDNS.outputs.storageQueueDnsZoneId
+    storageTableDnsZoneId: privateDNS.outputs.storageTableDnsZoneId
   }
+  dependsOn: [
+    privateDNS
+  ]
 }
 
+var webAppBeSubnetIndex = 4
 module webapp 'compute/webapp/webappPE.bicep' = {
   name: 'wapp-${suffix}'
   params: {
     location: location
     name: 'wapp-${suffix}'
     workspaceId: workspaceId
-    beSubnetId: network.outputs.subnets[4].id
-
+    beSubnetId: network.outputs.subnets[webAppBeSubnetIndex].id
+    resourceTags: resourceTags
+    peSubnetId: network.outputs.peSubnetId
+    suffixnh: suffixnh
+    storageFileDnsZoneId: privateDNS.outputs.storageFileDnsZoneId
+    storageBlobDnsZoneId: privateDNS.outputs.storageBlobDnsZoneId
+    storageQueueDnsZoneId: privateDNS.outputs.storageQueueDnsZoneId
+    storageTableDnsZoneId: privateDNS.outputs.storageTableDnsZoneId
+    websiteDnsZoneId: privateDNS.outputs.websiteDnsZoneId
   }
+}
+
+var laBeSubnetIndex = 6
+module logicApp 'compute/logicapp/logicappPE.bicep' = {
+  name: 'la-${suffix}'
+  params: {
+    location: location
+    workspaceId: workspaceId
+    name: 'la-${suffix}'
+    suffixnh: suffixnh
+    laBeSubnet: network.outputs.subnets[laBeSubnetIndex].id
+    resourceTags: resourceTags
+    peSubnetId: network.outputs.peSubnetId
+    storageFileDnsZoneId: privateDNS.outputs.storageFileDnsZoneId
+    storageBlobDnsZoneId: privateDNS.outputs.storageBlobDnsZoneId
+    storageQueueDnsZoneId: privateDNS.outputs.storageQueueDnsZoneId
+    storageTableDnsZoneId: privateDNS.outputs.storageTableDnsZoneId
+  }
+  dependsOn: [
+    privateDNS
+  ]
 }
