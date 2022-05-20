@@ -31,7 +31,7 @@ param storageFileDnsZoneId string
 param storageBlobDnsZoneId string 
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
-
+param deployFrontPE bool = false
 
 var applicationInsightsName = 'appi-${functionAppName}'
 var privateEndpointStorageFileName = 'pe-${storageAccount.name}-file'
@@ -245,11 +245,14 @@ resource plan 'Microsoft.Web/serverfarms@2021-01-01' = {
   }  
 }
 
-resource functionApp 'Microsoft.Web/sites@2021-01-01' = {
+resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
   location: location
   name: functionAppName
   kind: isReserved ? 'functionapp,linux' : 'functionapp'
   tags: resourceTags
+  identity: {
+    type: 'SystemAssigned'
+  }
   dependsOn: [
     storageFilePrivateDnsZoneGroup
     storageBlobPrivateDnsZoneGroup
@@ -263,6 +266,7 @@ resource functionApp 'Microsoft.Web/sites@2021-01-01' = {
     siteConfig: {
       functionsRuntimeScaleMonitoringEnabled: true
       linuxFxVersion: isReserved ? 'dotnet|3.1' : json('null')
+      vnetRouteAllEnabled: true
       appSettings: [
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
@@ -284,10 +288,10 @@ resource functionApp 'Microsoft.Web/sites@2021-01-01' = {
           name: 'FUNCTIONS_WORKER_RUNTIME'
           value: 'dotnet'
         }
-        {
-          name: 'WEBSITE_VNET_ROUTE_ALL'
-          value: '1'
-        }
+        // {
+        //   name: 'WEBSITE_VNET_ROUTE_ALL'
+        //   value: '1'
+        // }
         {
           name: 'WEBSITE_CONTENTOVERVNET'
           value: '1'
@@ -301,11 +305,49 @@ resource functionApp 'Microsoft.Web/sites@2021-01-01' = {
   }
 }
 
-resource planNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-01-01' = {
+resource planNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
   parent: functionApp
   name: 'virtualNetwork'
   properties: {
     subnetResourceId: funcBeSubnetId
     swiftSupported: true
+  }
+}
+
+// -- Private Endpoints --
+resource FuncPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =  if (deployFrontPE) {
+  name: 'pe-la'
+  location: location
+  tags: resourceTags
+  properties: {
+    subnet: {
+      id: peSubnetId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'WebAppPrivateLinkConnection'
+        properties: {
+          privateLinkServiceId: functionApp.id
+          groupIds: [
+            'sites'
+          ]
+        }
+      }
+    ]
+  }
+}
+
+resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = if (deployFrontPE) {
+  parent: FuncPrivateEndpoint
+  name: 'FuncPrivateDnsZoneGroup'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'config'
+        properties: {
+          privateDnsZoneId: ''
+        }
+      }
+    ]
   }
 }

@@ -3,13 +3,16 @@ param location string
 param principalId string = 'fbcbb707-6c31-4630-ad42-81cfea358aa8'
 param vnetId string
 param peSubnetId string
+param sqlConnectionString string
+param resourceTags object
 
 var privateEndpointName = 'pe-${name}'
 var privateDnsZoneName = 'privatelink.vaultcore.azure.net'
 
-resource keyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
+resource KeyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
   name: name
   location: location
+  tags: resourceTags
   properties: {
     sku: {
       family: 'A'
@@ -62,7 +65,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
             'deleteissuers'
           ]
         }
-      }
+      }      
     ]
     enabledForDeployment: false
     enabledForDiskEncryption: false
@@ -70,6 +73,14 @@ resource keyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
     enableSoftDelete: true
     softDeleteRetentionInDays: 90
     enableRbacAuthorization: false    
+  }
+}
+
+resource DBSecret 'Microsoft.KeyVault/vaults/secrets@2021-10-01' = {
+  parent: KeyVault
+  name: 'dbconstr'
+  properties: {
+    value: sqlConnectionString    
   }
 }
 
@@ -94,6 +105,7 @@ resource sqlPrivateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetwork
 resource PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01' = {
   name: privateEndpointName
   location: location
+  tags: resourceTags
   properties: {
     subnet: {
       id: peSubnetId
@@ -102,7 +114,7 @@ resource PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01' = {
       {
         name: privateEndpointName
         properties: {
-          privateLinkServiceId: keyVault.id
+          privateLinkServiceId: KeyVault.id
           groupIds: [
             'vault'
           ]
@@ -126,3 +138,5 @@ resource sqlEndpointDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneG
     ]
   }
 }
+
+output vaultUri string = KeyVault.properties.vaultUri

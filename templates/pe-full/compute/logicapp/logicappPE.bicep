@@ -9,6 +9,7 @@ param storageFileDnsZoneId string
 param storageBlobDnsZoneId string 
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
+param deployFrontPE bool = false
 //
 var laContentShareName = 'la-content-share'
 var hostingPlanName = 'asp-${name}'
@@ -217,12 +218,13 @@ resource AspServicePlan 'Microsoft.Web/serverfarms@2021-03-01' = {
   dependsOn: []
 }
 
-resource LogicApp 'Microsoft.Web/sites@2018-11-01' = {
+resource LogicApp 'Microsoft.Web/sites@2021-03-01' = {
   name: name
   kind: 'functionapp,workflowapp'
   location: location
-  properties: {
+  properties: {    
     siteConfig: {
+      vnetRouteAllEnabled: true
       appSettings: [
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
@@ -268,10 +270,10 @@ resource LogicApp 'Microsoft.Web/sites@2018-11-01' = {
           name: 'APP_KIND'
           value: 'workflowApp'
         }
-        {
-          name: 'WEBSITE_VNET_ROUTE_ALL'
-          value: '1'
-        }
+        // {
+        //   name: 'WEBSITE_VNET_ROUTE_ALL'
+        //   value: '1'
+        // }
       ]
       cors: {}
       use32BitWorkerProcess: true
@@ -287,11 +289,50 @@ resource LogicApp 'Microsoft.Web/sites@2018-11-01' = {
   }
 }
 
-resource planNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-01-01' = {
+resource LAAppNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
   parent: LogicApp
   name: 'virtualNetwork'
   properties: {
     subnetResourceId: laBeSubnet
     swiftSupported: true
+  }
+}
+
+
+// -- Private Endpoints --
+resource LAPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =  if (deployFrontPE) {
+  name: 'pe-la'
+  location: location
+  tags: resourceTags
+  properties: {
+    subnet: {
+      id: peSubnetId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'WebAppPrivateLinkConnection'
+        properties: {
+          privateLinkServiceId: LogicApp.id
+          groupIds: [
+            'sites'
+          ]
+        }
+      }
+    ]
+  }
+}
+
+resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = if (deployFrontPE) {
+  parent: LAPrivateEndpoint
+  name: 'LaPrivateDnsZoneGroup'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'config'
+        properties: {
+          privateDnsZoneId: ''
+        }
+      }
+    ]
   }
 }

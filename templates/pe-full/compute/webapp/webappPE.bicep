@@ -25,6 +25,8 @@ param storageBlobDnsZoneId string
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
 param websiteDnsZoneId string
+param deployFrontPE bool = false
+
 var SKU_tier = 'PremiumV2'
 var privateEndpointStorageFileName = 'pe-${storageAccountName}-file'
 var privateEndpointStorageTableName = 'pe-${storageAccountName}-table'
@@ -199,7 +201,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
   }
 }
 
-resource functionContentShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2021-04-01' = {
+resource WebContentShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2021-04-01' = {
   name: '${storageAccount.name}/default/${webAppContentShareName}'  
 }
 
@@ -224,12 +226,17 @@ resource AspServicePlan 'Microsoft.Web/serverfarms@2021-03-01' = {
   kind: 'app'
 }
 
-resource webApp 'Microsoft.Web/sites@2021-03-01' = {
+resource WebApp 'Microsoft.Web/sites@2021-03-01' = {
   name: name
   location: location
+  kind: 'app'
+  identity: {
+     type: 'SystemAssigned'
+  }
   properties: {
-    serverFarmId: AspServicePlan.id
+    serverFarmId: AspServicePlan.id    
     siteConfig: {
+      vnetRouteAllEnabled: true
       appSettings: [
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
@@ -239,10 +246,10 @@ resource webApp 'Microsoft.Web/sites@2021-03-01' = {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value:  appInsights.properties.ConnectionString
         }        
-        {
-          name: 'WEBSITE_VNET_ROUTE_ALL'
-          value: '1'
-        }
+        // {
+        //   name: 'WEBSITE_VNET_ROUTE_ALL'
+        //   value: '1'
+        // }
         {
           name: 'WEBSITE_CONTENTOVERVNET'
           value: '1'
@@ -265,7 +272,7 @@ resource webApp 'Microsoft.Web/sites@2021-03-01' = {
 }
 
 resource webappVnet 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
-  parent: webApp
+  parent: WebApp
   name: 'virtualNetwork'
   properties: {
     subnetResourceId: beSubnetId
@@ -275,7 +282,7 @@ resource webappVnet 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
 
 
 // -- Private Endpoints --
-resource WebAppPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = {
+resource WebAppPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =  if (deployFrontPE) {
   name: 'pe-webapp'
   location: location
   tags: resourceTags
@@ -287,7 +294,7 @@ resource WebAppPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =
       {
         name: 'WebAppPrivateLinkConnection'
         properties: {
-          privateLinkServiceId: webApp.id
+          privateLinkServiceId: WebApp.id
           groupIds: [
             'sites'
           ]
@@ -297,7 +304,7 @@ resource WebAppPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =
   }
 }
 
-resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = {
+resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = if (deployFrontPE) {
   parent: WebAppPrivateEndpoint
   name: 'WebAppPrivateDnsZoneGroup'
   properties: {
@@ -312,37 +319,4 @@ resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDn
   }
 }
 
-// resource privateDnsZones 'Microsoft.Network/privateDnsZones@2018-09-01' = {
-//   name: privateDNSZoneName
-//   location: 'global'
-//   dependsOn: [
-//     virtualNetwork
-//   ]
-// }
-
-// resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2018-09-01' = {
-//   parent: privateDnsZones
-//   name: '${privateDnsZones.name}-link'
-//   location: 'global'
-//   properties: {
-//     registrationEnabled: false
-//     virtualNetwork: {
-//       id: virtualNetwork.id
-//     }
-//   }
-// }
-
-// resource privateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2020-03-01' = {
-//   parent: privateEndpoint
-//   name: 'dnsgroupname'
-//   properties: {
-//     privateDnsZoneConfigs: [
-//       {
-//         name: 'config1'
-//         properties: {
-//           privateDnsZoneId: privateDnsZones.id
-//         }
-//       }
-//     ]
-//   }
-// }
+output objectId string = WebApp.identity.principalId
