@@ -11,11 +11,11 @@
 // Why UID: have been creating and removing resources too quickly and sometimes
 // there are errors that the resources names already exists during recreationg.
 
-// az group create -g rg-bicepdemo3-poc-eus -l eastus
-// az group delete -y -g rg-bicepdemo3-poc-eus
-// az deployment group create -g rg-bicepdemo3-poc-eus --template-file main.bicep
+param version string = '5'
+// az group create -g rg-bicepdemo5-poc-eus -l eastus
+// az group delete -y -g rg-bicepdemo5-poc-eus
+// az deployment group create -g rg-bicepdemo5-poc-eus --template-file main.bicep -n deployment1
 
-param version string = '3'
 param location string = resourceGroup().location
 param domain string = 'ecloud'
 param project string = 'sol${version}'
@@ -55,28 +55,28 @@ module privateDNS 'networking/dns/privateDNS.bicep' = {
   }
 }
 
-// var AzureBastionSubnetIndex = 1
-// module bastion 'networking/bastion.bicep' = {
-//   name: 'bast-${suffix}'
-//   params: {
-//     location: location
-//     bastionName: 'bast-${suffix}'    
-//     bastionSubnetId: network.outputs.subnets[AzureBastionSubnetIndex].id
-//     resourceTags: resourceTags
-//   }
-// }
+var AzureBastionSubnetIndex = 1
+module bastion 'networking/bastion.bicep' = {
+  name: 'bast-${suffix}'
+  params: {
+    location: location
+    bastionName: 'bast-${suffix}'
+    bastionSubnetId: network.outputs.subnets[AzureBastionSubnetIndex].id
+    resourceTags: resourceTags
+  }
+}
 
-// var vmSubnetIndex = 2
-// module vm 'compute/vm/devvm.bicep' = {
-//   name: 'vmdev'
-//   params: {
-//     location: location
-//     user_name: 'alex'
-//     user_pwd: 'Fuerte#123456'
-//     vm_name: 'vmdev'
-//     subnetId: network.outputs.subnets[vmSubnetIndex].id // vmSubnet
-//   }
-// }
+var vmSubnetIndex = 2
+module vm 'compute/vm/devvm.bicep' = {
+  name: 'vmdev'
+  params: {
+    location: location
+    user_name: 'alex'
+    user_pwd: 'Fuerte#123456'
+    vm_name: 'vmdev'
+    subnetId: network.outputs.subnets[vmSubnetIndex].id // vmSubnet
+  }
+}
 
 // Create a SQL instance with a Private Endpoint
 module sql 'data/sql/sqlPE.bicep' = {
@@ -93,14 +93,14 @@ module sql 'data/sql/sqlPE.bicep' = {
 
 // Create a KV with Private Endpoint and add a few secrets
 module kv 'keyvault/keyvaultPE.bicep' = {
-  name: 'kv${suffixnh}${epoch}'
+  name: 'kv-${suffix}'
   params: {
     location: location
-    name: 'kv${suffixnh}${epoch}'
+    name: 'kv-${suffix}'
     resourceTags: resourceTags
     vnetId: network.outputs.vnetId
     peSubnetId: network.outputs.peSubnetId
-    sqlConnectionString: sql.outputs.ConnectionString    
+    //sqlConnectionString: sql.outputs.ConnectionString    
   }
 }
 
@@ -112,7 +112,7 @@ module appconfig 'appconfig/appconfigPE.bicep' = {
     location: location
     vnetId: network.outputs.vnetId
     peSubnetId: network.outputs.peSubnetId
-    resourceTags: resourceTags    
+    resourceTags: resourceTags
     sqlConnectionString: sql.outputs.ConnectionString
     vaultUri: kv.outputs.vaultUri
   }
@@ -120,10 +120,10 @@ module appconfig 'appconfig/appconfigPE.bicep' = {
 
 // Add a FunctionApp with PE Storage and optional PE frontend
 module func 'compute/function/funcPE.bicep' = {
-  name: 'func${suffixnh}'
+  name: 'fnapp-${suffix}'
   params: {
     functionAppPlanName: 'asp-func-${suffix}'
-    functionAppName: 'func${suffixnh}'
+    functionAppName: 'fnapp-${suffix}'
     functionStorageAccountName: 'storfn${suffixnh}'
     location: location
     peSubnetId: network.outputs.peSubnetId
@@ -165,7 +165,7 @@ module webapp 'compute/webapp/webappPE.bicep' = {
 // Add a standard Logic App with PE Storage and optional PE frontend
 var laBeSubnetIndex = 6
 module logicApp 'compute/logicapp/logicappPE.bicep' = {
-  name: 'la-${suffix}'
+  name: 'laapp-${suffix}'
   params: {
     location: location
     workspaceId: workspaceId
@@ -184,3 +184,9 @@ module logicApp 'compute/logicapp/logicappPE.bicep' = {
     privateDNS
   ]
 }
+
+// TODO: use the vnet in another module
+output vnetID string = network.outputs.vnetId
+output kvURI string = kv.outputs.vaultUri
+output kvID string = kv.outputs.kvID
+output webappPrincipalID string = webapp.outputs.objectId

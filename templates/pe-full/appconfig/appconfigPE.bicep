@@ -5,10 +5,10 @@ param peSubnetId string
 param resourceTags object
 param sqlConnectionString string
 param vaultUri string = ''
+param deployFrontPE bool = false
 
 var privateEndpointName = 'pe-${name}'
 var privateDnsZoneName = 'privatelink.azconfig.io'
-
 
 resource AppConfigStore 'Microsoft.AppConfiguration/configurationStores@2021-10-01-preview' = {
   name: name
@@ -59,7 +59,7 @@ resource AppConfigDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkL
   }
 }
 
-resource AppConfigPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = {
+resource AppConfigPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (deployFrontPE) {
   name: privateEndpointName
   location: location
   properties: {
@@ -80,7 +80,7 @@ resource AppConfigPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01
   }
 }
 
-resource appConfigPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = {
+resource appConfigPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2021-02-01' = if (deployFrontPE) {
   parent: AppConfigPrivateEndpoint
   name: 'appConfigDnsZoneGroup'
   properties: {

@@ -27,8 +27,8 @@ param peSubnetId string
 param funcBeSubnetId string
 param workspaceId string
 param resourceTags object
-param storageFileDnsZoneId string 
-param storageBlobDnsZoneId string 
+param storageFileDnsZoneId string
+param storageBlobDnsZoneId string
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
 param deployFrontPE bool = false
@@ -214,16 +214,16 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
 }
 
 resource functionContentShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2021-04-01' = {
-  name: '${storageAccount.name}/default/${functionContentShareName}'  
+  name: '${storageAccount.name}/default/${functionContentShareName}'
 }
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: applicationInsightsName  
+  name: applicationInsightsName
   location: location
   tags: resourceTags
   kind: 'web'
   properties: {
-    Application_Type: 'web'     
+    Application_Type: 'web'
     WorkspaceResourceId: workspaceId
   }
 }
@@ -242,7 +242,7 @@ resource plan 'Microsoft.Web/serverfarms@2021-01-01' = {
   properties: {
     maximumElasticWorkerCount: 20
     reserved: isReserved
-  }  
+  }
 }
 
 resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
@@ -262,7 +262,7 @@ resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
   ]
   properties: {
     serverFarmId: plan.id
-    reserved: isReserved    
+    reserved: isReserved
     siteConfig: {
       functionsRuntimeScaleMonitoringEnabled: true
       linuxFxVersion: isReserved ? 'dotnet|3.1' : json('null')
@@ -282,11 +282,15 @@ resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
         }
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~3'
+          value: '~4'
         }
         {
           name: 'FUNCTIONS_WORKER_RUNTIME'
           value: 'dotnet'
+        }
+        {
+          name: '"WEBSITE_NODE_DEFAULT_VERSION'
+          value: '~14'
         }
         // {
         //   name: 'WEBSITE_VNET_ROUTE_ALL'
@@ -299,6 +303,10 @@ resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
         {
           name: 'WEBSITE_CONTENTSHARE'
           value: functionContentShareName
+        }
+        {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: '1'
         }
       ]
     }
@@ -315,7 +323,7 @@ resource planNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
 }
 
 // -- Private Endpoints --
-resource FuncPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =  if (deployFrontPE) {
+resource FuncPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (deployFrontPE) {
   name: 'pe-la'
   location: location
   tags: resourceTags
