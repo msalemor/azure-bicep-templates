@@ -1,42 +1,13 @@
 param name string
 param location string
 param principalId string = 'fbcbb707-6c31-4630-ad42-81cfea358aa8'
-param vnetId string
 param peSubnetId string
 param sqlConnectionString string = ''
 param resourceTags object
 param deployFrontPE bool = false
+param keyvaultPrivateDnsZoneId string
 
 var privateEndpointName = 'pe-${name}'
-var privateDnsZoneName = 'privatelink.vaultcore.azure.net'
-
-// resource WebAppAccessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2021-11-01-preview' = {
-//   parent: KeyVault
-//   name: 'add' 
-//   properties: {
-//     accessPolicies:[
-//       {
-//         tenantId: tenant().tenantId
-//         objectId: ''
-//         permissions: {
-//           keys: [
-//             'get'
-//             'list'
-
-//           ]
-//           secrets: [
-//             'get'
-//             'list'
-//           ]
-//           certificates: [
-//             'get'
-//             'list'
-//           ]
-//         }
-//       }
-//     ]
-//   }
-// }
 
 resource KeyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
   name: name
@@ -109,27 +80,9 @@ resource KeyVault 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
 //   parent: KeyVault
 //   name: 'dbconstr'
 //   properties: {
-//     value: sqlConnectionString    
+//     value: sqlConnectionString
 //   }
 // }
-
-resource PrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: privateDnsZoneName
-  location: 'global'
-  properties: {}
-}
-
-resource sqlPrivateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  parent: PrivateDnsZone
-  name: 'link-${privateDnsZoneName}'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnetId
-    }
-  }
-}
 
 resource PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-05-01' = if (deployFrontPE) {
   name: privateEndpointName
@@ -161,7 +114,7 @@ resource sqlEndpointDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneG
       {
         name: 'config'
         properties: {
-          privateDnsZoneId: PrivateDnsZone.id
+          privateDnsZoneId: keyvaultPrivateDnsZoneId
         }
       }
     ]

@@ -11,6 +11,7 @@ builder.Configuration.AddAzureKeyVault(new Uri($"https://{keyvaultName}.vault.az
 );
 // https://fnapp-ecloud-sol5-poc-eus.azurewebsites.net/api/getcontacts
 // Add services to the container.
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddHttpClient();
 builder.Services.AddControllersWithViews();
 

@@ -20,12 +20,13 @@ param resourceTags object
 param peSubnetId string
 param suffixnh string
 param storageAccountName string = 'storwapp${suffixnh}'
-param storageFileDnsZoneId string 
-param storageBlobDnsZoneId string 
+param storageFileDnsZoneId string
+param storageBlobDnsZoneId string
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
 param websiteDnsZoneId string
 param deployFrontPE bool = false
+param keyvaultName string
 
 var SKU_tier = 'PremiumV2'
 var privateEndpointStorageFileName = 'pe-${storageAccountName}-file'
@@ -202,15 +203,15 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
 }
 
 resource WebContentShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2021-04-01' = {
-  name: '${storageAccount.name}/default/${webAppContentShareName}'  
+  name: '${storageAccount.name}/default/${webAppContentShareName}'
 }
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: applicationInsightsName  
+  name: applicationInsightsName
   location: location
   kind: 'web'
   properties: {
-    Application_Type: 'web'     
+    Application_Type: 'web'
     WorkspaceResourceId: workspaceId
   }
 }
@@ -231,10 +232,10 @@ resource WebApp 'Microsoft.Web/sites@2021-03-01' = {
   location: location
   kind: 'app'
   identity: {
-     type: 'SystemAssigned'
+    type: 'SystemAssigned'
   }
   properties: {
-    serverFarmId: AspServicePlan.id    
+    serverFarmId: AspServicePlan.id
     siteConfig: {
       vnetRouteAllEnabled: true
       appSettings: [
@@ -244,8 +245,8 @@ resource WebApp 'Microsoft.Web/sites@2021-03-01' = {
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value:  appInsights.properties.ConnectionString
-        }        
+          value: appInsights.properties.ConnectionString
+        }
         // {
         //   name: 'WEBSITE_VNET_ROUTE_ALL'
         //   value: '1'
@@ -266,8 +267,12 @@ resource WebApp 'Microsoft.Web/sites@2021-03-01' = {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
           value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value}'
         }
+        {
+          name: 'keyvaultName'
+          value: keyvaultName
+        }
       ]
-    }  
+    }
   }
 }
 
@@ -276,13 +281,12 @@ resource webappVnet 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
   name: 'virtualNetwork'
   properties: {
     subnetResourceId: beSubnetId
-    swiftSupported: true    
+    swiftSupported: true
   }
 }
 
-
 // -- Private Endpoints --
-resource WebAppPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =  if (deployFrontPE) {
+resource WebAppPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (deployFrontPE) {
   name: 'pe-webapp'
   location: location
   tags: resourceTags
@@ -319,4 +323,4 @@ resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDn
   }
 }
 
-output objectId string = WebApp.identity.principalId
+output objectID string = WebApp.identity.principalId

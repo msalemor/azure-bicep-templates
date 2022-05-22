@@ -32,6 +32,7 @@ param storageBlobDnsZoneId string
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
 param deployFrontPE bool = false
+param ascName string
 
 var applicationInsightsName = 'appi-${functionAppName}'
 var privateEndpointStorageFileName = 'pe-${storageAccount.name}-file'
@@ -245,7 +246,11 @@ resource plan 'Microsoft.Web/serverfarms@2021-01-01' = {
   }
 }
 
-resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
+resource AppConfigStore 'Microsoft.AppConfiguration/configurationStores@2021-10-01-preview' existing = {
+  name: ascName
+}
+
+resource FuncApp 'Microsoft.Web/sites@2021-03-01' = {
   location: location
   name: functionAppName
   kind: isReserved ? 'functionapp,linux' : 'functionapp'
@@ -308,13 +313,17 @@ resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: '1'
         }
+        {
+          name: 'AppConfigConnStr'
+          value: AppConfigStore.listKeys().value[0].connectionString
+        }
       ]
     }
   }
 }
 
 resource planNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
-  parent: functionApp
+  parent: FuncApp
   name: 'virtualNetwork'
   properties: {
     subnetResourceId: funcBeSubnetId
@@ -335,7 +344,7 @@ resource FuncPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = i
       {
         name: 'WebAppPrivateLinkConnection'
         properties: {
-          privateLinkServiceId: functionApp.id
+          privateLinkServiceId: FuncApp.id
           groupIds: [
             'sites'
           ]
@@ -359,3 +368,5 @@ resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDn
     ]
   }
 }
+
+output objectID string = FuncApp.identity.principalId

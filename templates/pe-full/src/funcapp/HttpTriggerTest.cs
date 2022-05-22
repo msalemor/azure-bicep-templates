@@ -34,18 +34,18 @@ namespace ecloud.Function
 
             log.LogInformation("C# HTTP trigger function processed a request.");
 
-            string keyName = "dbconstr";
+            string keyName = "settings:dbconstr";
 
             // Test connectivity to ASC
-            string constr = _configuration[keyName];
+            string connectionString = _configuration[keyName];
+            log.LogInformation($"Connection string: {connectionString}");
             AppConfigPEVerified = true;
-            await Task.Delay(1);
 
             object rows = null;
             try
             {
                 // Test connectivity to DB
-                using (var sqlConnection = new SqlConnection(constr))
+                using (var sqlConnection = new SqlConnection(connectionString))
                 {
                     await sqlConnection.OpenAsync();
                     using (var cmd = new SqlCommand("select count(*) from [SalesLT].[Customer]", sqlConnection))
@@ -64,6 +64,7 @@ namespace ecloud.Function
             {
                 var client = new HttpClient();
                 var workflow1URI = _configuration["settings:workflow1URI"];
+                log.LogInformation($"Workflow URI: {workflow1URI}");
                 var res = await client.GetAsync(workflow1URI);
                 if (res.IsSuccessStatusCode)
                 {
@@ -80,8 +81,8 @@ namespace ecloud.Function
                 log.LogError(ex, "API Call error");
             }
 
-            return constr != null
-                ? (ActionResult)new OkObjectResult($"AppConfig PE {(AppConfigPEVerified ? "Verified" : "failed")}-LA Workflow PE {(LAPEWorkflowVerified ? "Verified" : "failed")}-SQL PE {(SQLPEVerified ? "Verified" : "Failed")} Rows: {rows}")
+            return connectionString != null
+                ? (ActionResult)new OkObjectResult($"AppConfig PE {(AppConfigPEVerified ? "Verified" : "Failed")}-LA Workflow PE {(LAPEWorkflowVerified ? "Verified" : "Failed")}-SQL PE {(SQLPEVerified ? "Verified" : "Failed")} Rows: {rows}")
                 : new BadRequestObjectResult($"Please create a key-value with the key '{keyName} {rows}' in App Configuration.");
         }
     }

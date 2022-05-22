@@ -11,13 +11,13 @@ namespace ecloud.Function
     {
         public override void ConfigureAppConfiguration(IFunctionsConfigurationBuilder builder)
         {
-            string cs = Environment.GetEnvironmentVariable("ConnectionString");
-            //builder.ConfigurationBuilder.AddAzureAppConfiguration(cs);
-            builder.ConfigurationBuilder.AddAzureAppConfiguration(options =>
-            {
-                options.Connect(cs)
-                .ConfigureKeyVault(kv => kv.SetCredential(new DefaultAzureCredential()));
-            });
+            string cs = Environment.GetEnvironmentVariable("AppConfigConnStr");
+            builder.ConfigurationBuilder.AddAzureAppConfiguration(cs);
+            // builder.ConfigurationBuilder.AddAzureAppConfiguration(options =>
+            // {
+            //     options.Connect(cs)
+            //     .ConfigureKeyVault(kv => kv.SetCredential(new DefaultAzureCredential()));
+            // });
         }
 
         public override void Configure(IFunctionsHostBuilder builder)

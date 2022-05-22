@@ -12,13 +12,14 @@
 // there are errors that the resources names already exists during recreationg.
 
 param version string = '5'
-// az group create -g rg-bicepdemo5-poc-eus -l eastus
-// az group delete -y -g rg-bicepdemo5-poc-eus
-// az deployment group create -g rg-bicepdemo5-poc-eus --template-file main.bicep -n deployment1
+// az group create -g rg-contosopj5-poc-eus -l eastus
+// az group delete -y -g rg-contosopj5-poc-eus
+// az deployment group create -g rg-contosopj5-poc-eus --template-file main.bicep -n deployment1
 
 param location string = resourceGroup().location
-param domain string = 'ecloud'
-param project string = 'sol${version}'
+param domain string = 'contoso'
+//param domain string = 'ecloud'
+param project string = 'pj${version}'
 param shortloc string = 'eus'
 param env string = 'poc'
 param epoch int = dateTimeToEpoch(dateTimeAdd(utcNow(), 'P1Y'))
@@ -31,13 +32,13 @@ param resourceTags object = {
 }
 param deployFrontPE bool = false
 
-var suffix = '${domain}-${project}-${env}-${shortloc}'
-var suffixnh = '${domain}${project}${env}${shortloc}'
+var suffix = '${domain}-${project}${version}-${env}-${shortloc}'
+var suffixnh = '${domain}${project}${version}${env}${shortloc}'
 var vnet_name = 'vnet-${suffix}'
 var workspaceId = '/subscriptions/97e6e7ea-a213-4f0e-87e0-ea14b9781c76/resourcegroups/defaultresourcegroup-eus/providers/microsoft.operationalinsights/workspaces/defaultworkspace-97e6e7ea-a213-4f0e-87e0-ea14b9781c76-eus'
 
 // Create the VNET
-module network 'networking/vnet.bicep' = {
+module Networking 'networking/vnet.bicep' = {
   name: vnet_name
   params: {
     resourceTags: resourceTags
@@ -48,145 +49,179 @@ module network 'networking/vnet.bicep' = {
 }
 
 // Create and Link the Private DNS Zones to the VNET
-module privateDNS 'networking/dns/privateDNS.bicep' = {
+module PrivateDNS 'networking/privateDNS/privateDNS.bicep' = {
   name: 'privateDNS'
   params: {
-    vnetId: network.outputs.vnetId
+    vnetId: Networking.outputs.vnetId
   }
 }
 
 var AzureBastionSubnetIndex = 1
-module bastion 'networking/bastion.bicep' = {
+module Bastion 'networking/bastion.bicep' = {
   name: 'bast-${suffix}'
   params: {
     location: location
     bastionName: 'bast-${suffix}'
-    bastionSubnetId: network.outputs.subnets[AzureBastionSubnetIndex].id
+    bastionSubnetId: Networking.outputs.subnets[AzureBastionSubnetIndex].id
     resourceTags: resourceTags
   }
 }
 
 var vmSubnetIndex = 2
-module vm 'compute/vm/devvm.bicep' = {
+module DevVM 'compute/vm/devvm.bicep' = {
   name: 'vmdev'
   params: {
     location: location
     user_name: 'alex'
     user_pwd: 'Fuerte#123456'
     vm_name: 'vmdev'
-    subnetId: network.outputs.subnets[vmSubnetIndex].id // vmSubnet
+    subnetId: Networking.outputs.subnets[vmSubnetIndex].id // vmSubnet
   }
 }
 
 // Create a SQL instance with a Private Endpoint
-module sql 'data/sql/sqlPE.bicep' = {
+module SQLServerAndDatabase 'data/sql/sqlPE.bicep' = {
   name: 'sql-${suffix}'
   params: {
     sqlAdministratorLogin: 'dbadmin'
     sqlname: 'sql${suffix}'
     dbname: 'db${suffixnh}'
     location: location
-    vnetId: network.outputs.vnetId
-    peSubnetId: network.outputs.peSubnetId
+    vnetId: Networking.outputs.vnetId
+    peSubnetId: Networking.outputs.peSubnetId
   }
 }
 
 // Create a KV with Private Endpoint and add a few secrets
-module kv 'keyvault/keyvaultPE.bicep' = {
+var keyvaultName = 'kv-${suffix}'
+module KeyVault 'keyvault/keyvaultPE.bicep' = {
   name: 'kv-${suffix}'
   params: {
     location: location
-    name: 'kv-${suffix}'
+    name: keyvaultName
     resourceTags: resourceTags
-    vnetId: network.outputs.vnetId
-    peSubnetId: network.outputs.peSubnetId
+    peSubnetId: Networking.outputs.peSubnetId
+    keyvaultPrivateDnsZoneId: PrivateDNS.outputs.keyvaultDnsZoneId
     //sqlConnectionString: sql.outputs.ConnectionString    
   }
+  dependsOn: [
+    PrivateDNS
+  ]
 }
 
 // Create an App Configuration and add a few configuration settings
-module appconfig 'appconfig/appconfigPE.bicep' = {
+module AppConfiguration 'appconfig/appconfigPE.bicep' = {
   name: 'asc${suffix}${epoch}'
   params: {
     name: 'asc${suffix}${epoch}'
     location: location
-    vnetId: network.outputs.vnetId
-    peSubnetId: network.outputs.peSubnetId
+    peSubnetId: Networking.outputs.peSubnetId
     resourceTags: resourceTags
-    sqlConnectionString: sql.outputs.ConnectionString
-    vaultUri: kv.outputs.vaultUri
+    azConfigDnsZoneId: PrivateDNS.outputs.azConfigDnsZoneId
   }
+  dependsOn: [
+    PrivateDNS
+  ]
 }
 
 // Add a FunctionApp with PE Storage and optional PE frontend
-module func 'compute/function/funcPE.bicep' = {
+module FuncApp 'compute/function/funcPE.bicep' = {
   name: 'fnapp-${suffix}'
   params: {
+    ascName: 'asc${suffix}${epoch}'
     functionAppPlanName: 'asp-func-${suffix}'
     functionAppName: 'fnapp-${suffix}'
     functionStorageAccountName: 'storfn${suffixnh}'
     location: location
-    peSubnetId: network.outputs.peSubnetId
-    funcBeSubnetId: network.outputs.funcBeSubnetId
+    peSubnetId: Networking.outputs.peSubnetId
+    funcBeSubnetId: Networking.outputs.funcBeSubnetId
     workspaceId: workspaceId
     resourceTags: resourceTags
-    storageFileDnsZoneId: privateDNS.outputs.storageFileDnsZoneId
-    storageBlobDnsZoneId: privateDNS.outputs.storageBlobDnsZoneId
-    storageQueueDnsZoneId: privateDNS.outputs.storageQueueDnsZoneId
-    storageTableDnsZoneId: privateDNS.outputs.storageTableDnsZoneId
+    storageFileDnsZoneId: PrivateDNS.outputs.storageFileDnsZoneId
+    storageBlobDnsZoneId: PrivateDNS.outputs.storageBlobDnsZoneId
+    storageQueueDnsZoneId: PrivateDNS.outputs.storageQueueDnsZoneId
+    storageTableDnsZoneId: PrivateDNS.outputs.storageTableDnsZoneId
     deployFrontPE: deployFrontPE
   }
   dependsOn: [
-    privateDNS
+    PrivateDNS
+    AppConfiguration
   ]
 }
 
 // Add a WebApp with PE Storage and optional PE frontend
 var webAppBeSubnetIndex = 4
-module webapp 'compute/webapp/webappPE.bicep' = {
+module WebApp 'compute/webapp/webappPE.bicep' = {
   name: 'wapp-${suffix}'
   params: {
     location: location
     name: 'wapp-${suffix}'
     workspaceId: workspaceId
-    beSubnetId: network.outputs.subnets[webAppBeSubnetIndex].id
+    beSubnetId: Networking.outputs.subnets[webAppBeSubnetIndex].id
     resourceTags: resourceTags
-    peSubnetId: network.outputs.peSubnetId
+    peSubnetId: Networking.outputs.peSubnetId
     suffixnh: suffixnh
-    storageFileDnsZoneId: privateDNS.outputs.storageFileDnsZoneId
-    storageBlobDnsZoneId: privateDNS.outputs.storageBlobDnsZoneId
-    storageQueueDnsZoneId: privateDNS.outputs.storageQueueDnsZoneId
-    storageTableDnsZoneId: privateDNS.outputs.storageTableDnsZoneId
-    websiteDnsZoneId: privateDNS.outputs.websiteDnsZoneId
+    storageFileDnsZoneId: PrivateDNS.outputs.storageFileDnsZoneId
+    storageBlobDnsZoneId: PrivateDNS.outputs.storageBlobDnsZoneId
+    storageQueueDnsZoneId: PrivateDNS.outputs.storageQueueDnsZoneId
+    storageTableDnsZoneId: PrivateDNS.outputs.storageTableDnsZoneId
+    websiteDnsZoneId: PrivateDNS.outputs.websiteDnsZoneId
+    keyvaultName: keyvaultName
     deployFrontPE: deployFrontPE
   }
+  dependsOn: [
+    PrivateDNS
+  ]
 }
 
 // Add a standard Logic App with PE Storage and optional PE frontend
 var laBeSubnetIndex = 6
-module logicApp 'compute/logicapp/logicappPE.bicep' = {
+module LAApp 'compute/logicapp/logicappPE.bicep' = {
   name: 'laapp-${suffix}'
   params: {
     location: location
     workspaceId: workspaceId
     name: 'la-${suffix}'
     suffixnh: suffixnh
-    laBeSubnet: network.outputs.subnets[laBeSubnetIndex].id
+    laBeSubnet: Networking.outputs.subnets[laBeSubnetIndex].id
     resourceTags: resourceTags
-    peSubnetId: network.outputs.peSubnetId
-    storageFileDnsZoneId: privateDNS.outputs.storageFileDnsZoneId
-    storageBlobDnsZoneId: privateDNS.outputs.storageBlobDnsZoneId
-    storageQueueDnsZoneId: privateDNS.outputs.storageQueueDnsZoneId
-    storageTableDnsZoneId: privateDNS.outputs.storageTableDnsZoneId
+    peSubnetId: Networking.outputs.peSubnetId
+    storageFileDnsZoneId: PrivateDNS.outputs.storageFileDnsZoneId
+    storageBlobDnsZoneId: PrivateDNS.outputs.storageBlobDnsZoneId
+    storageQueueDnsZoneId: PrivateDNS.outputs.storageQueueDnsZoneId
+    storageTableDnsZoneId: PrivateDNS.outputs.storageTableDnsZoneId
     deployFrontPE: deployFrontPE
   }
   dependsOn: [
-    privateDNS
+    PrivateDNS
   ]
 }
 
+module AddKVPolicies 'keyvault/addpolicies.bicep' = {
+  name: 'addkvpolicies'
+  params: {
+    keyvaultName: KeyVault.name
+    laappObjectID: LAApp.outputs.objectID
+    funcappObjectID: FuncApp.outputs.objectID
+    ascObjectID: AppConfiguration.outputs.objectID
+    webappObjectID: WebApp.outputs.objectID
+  }
+}
+
+module AddSecrets 'secrets/secrets.bicep' = {
+  name: 'add-secrets'
+  params: {
+    ascName: AppConfiguration.name
+    funcAppName: FuncApp.name
+    keyvaultName: KeyVault.name
+    sqlConnectionString: SQLServerAndDatabase.outputs.ConnectionString
+  }
+}
+
 // TODO: use the vnet in another module
-output vnetID string = network.outputs.vnetId
-output kvURI string = kv.outputs.vaultUri
-output kvID string = kv.outputs.kvID
-output webappPrincipalID string = webapp.outputs.objectId
+output vnetID string = Networking.outputs.vnetId
+output kvURI string = KeyVault.outputs.vaultUri
+output kvID string = KeyVault.outputs.kvID
+output webappPrincipalID string = WebApp.outputs.objectID
+output laappPrincipalID string = LAApp.outputs.objectID
+output funcappPrincipalID string = FuncApp.outputs.objectID

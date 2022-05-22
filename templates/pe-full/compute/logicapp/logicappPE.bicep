@@ -5,8 +5,8 @@ param suffixnh string
 param laBeSubnet string
 param peSubnetId string
 param resourceTags object
-param storageFileDnsZoneId string 
-param storageBlobDnsZoneId string 
+param storageFileDnsZoneId string
+param storageBlobDnsZoneId string
 param storageTableDnsZoneId string
 param storageQueueDnsZoneId string
 param deployFrontPE bool = false
@@ -18,7 +18,6 @@ var privateEndpointStorageFileName = 'pe-${StorageAccount.name}-file'
 var privateEndpointStorageTableName = 'pe-${StorageAccount.name}-table'
 var privateEndpointStorageBlobName = 'pe-${StorageAccount.name}-blob'
 var privateEndpointStorageQueueName = 'pe-${StorageAccount.name}-queue'
-
 
 resource ApplicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: 'aapi-${name}'
@@ -39,7 +38,7 @@ resource StorageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
   sku: {
     name: 'Standard_LRS'
   }
-  
+
   properties: {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
@@ -51,7 +50,7 @@ resource StorageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
 }
 
 resource laContentShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2021-09-01' = {
-  name: '${StorageAccount.name}/default/${laContentShareName}'  
+  name: '${StorageAccount.name}/default/${laContentShareName}'
 }
 
 // -- Private Endpoints --
@@ -222,7 +221,7 @@ resource LogicApp 'Microsoft.Web/sites@2021-03-01' = {
   name: name
   kind: 'functionapp,workflowapp'
   location: location
-  properties: {    
+  properties: {
     siteConfig: {
       vnetRouteAllEnabled: true
       appSettings: [
@@ -244,7 +243,7 @@ resource LogicApp 'Microsoft.Web/sites@2021-03-01' = {
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value:  ApplicationInsights.properties.ConnectionString
+          value: ApplicationInsights.properties.ConnectionString
         }
         {
           name: 'AzureWebJobsStorage'
@@ -298,9 +297,8 @@ resource LAAppNetworkConfig 'Microsoft.Web/sites/networkConfig@2021-03-01' = {
   }
 }
 
-
 // -- Private Endpoints --
-resource LAPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' =  if (deployFrontPE) {
+resource LAPrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (deployFrontPE) {
   name: 'pe-la'
   location: location
   tags: resourceTags
@@ -336,3 +334,5 @@ resource WebAppPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDn
     ]
   }
 }
+
+output objectID string = LogicApp.identity.principalId

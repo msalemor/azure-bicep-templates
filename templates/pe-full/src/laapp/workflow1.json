@@ -1,0 +1,25 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "HTTP": {
+        "inputs": {
+          "method": "GET",
+          "uri": "https://microsoft.com"
+        },
+        "runAfter": {},
+        "type": "Http"
+      }
+    },
+    "contentVersion": "1.0.0.0",
+    "outputs": {},
+    "triggers": {
+      "manual": {
+        "inputs": {},
+        "kind": "Http",
+        "type": "Request"
+      }
+    }
+  },
+  "kind": "Stateless"
+}

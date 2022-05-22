@@ -32,7 +32,7 @@ namespace ecloud.Function
             ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
-            const string keyName = "dbconstr";
+            const string keyName = "settings:dbconstr";
             string constr = _configuration[keyName];
             var customers = new List<Customer>();
 
