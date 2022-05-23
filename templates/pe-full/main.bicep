@@ -11,7 +11,7 @@
 // Why UID: have been creating and removing resources too quickly and sometimes
 // there are errors that the resources names already exists during recreationg.
 
-param version string = '5'
+param version string = '4'
 // az group create -g rg-contosopj5-poc-eus -l eastus
 // az group delete -y -g rg-contosopj5-poc-eus
 // az deployment group create -g rg-contosopj5-poc-eus --template-file main.bicep -n deployment1
@@ -102,7 +102,8 @@ module KeyVault 'keyvault/keyvaultPE.bicep' = {
     resourceTags: resourceTags
     peSubnetId: Networking.outputs.peSubnetId
     keyvaultPrivateDnsZoneId: PrivateDNS.outputs.keyvaultDnsZoneId
-    //sqlConnectionString: sql.outputs.ConnectionString    
+    //sqlConnectionString: sql.outputs.ConnectionString
+    deployFrontPE: deployFrontPE
   }
   dependsOn: [
     PrivateDNS
@@ -118,6 +119,7 @@ module AppConfiguration 'appconfig/appconfigPE.bicep' = {
     peSubnetId: Networking.outputs.peSubnetId
     resourceTags: resourceTags
     azConfigDnsZoneId: PrivateDNS.outputs.azConfigDnsZoneId
+    deployFrontPE: deployFrontPE
   }
   dependsOn: [
     PrivateDNS
@@ -167,7 +169,7 @@ module WebApp 'compute/webapp/webappPE.bicep' = {
     storageTableDnsZoneId: PrivateDNS.outputs.storageTableDnsZoneId
     websiteDnsZoneId: PrivateDNS.outputs.websiteDnsZoneId
     keyvaultName: keyvaultName
-    deployFrontPE: deployFrontPE
+    deployFrontPE: false
   }
   dependsOn: [
     PrivateDNS

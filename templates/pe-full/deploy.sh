@@ -1,6 +1,6 @@
 # Variables
 
-version=2
+version=8
 domain=contoso
 project=pj
 env=poc
@@ -8,7 +8,6 @@ location=eastus
 shortloc=eus
 rg_name="rg-${domain}${project}${version}-${env}-${shortloc}"
 #echo $version $rg_name
-
 
 # Deployment
 
