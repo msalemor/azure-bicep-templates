@@ -25,7 +25,7 @@ resource rgGroup 'Microsoft.Resources/resourceGroups@2020-10-01' = {
   location: location
 }
 
-module vnet 'vnet.bicep' = {
+module vnet 'modules/vnet.bicep' = {
   name: 'vnet'
   scope: rgGroup
   params: {
@@ -38,7 +38,7 @@ module vnet 'vnet.bicep' = {
   }
 }
 
-module sqlmi 'sqlmi.bicep' = {
+module sqlmi 'modules/sqlmi.bicep' = {
   name: 'sqlmi'
   scope: rgGroup
   params: {
@@ -53,7 +53,7 @@ module sqlmi 'sqlmi.bicep' = {
   ]
 }
 
-module webapp 'webapp.bicep' = {
+module webapp 'modules/webapp.bicep' = {
   name: 'webapp'
   scope: rgGroup
   params: {
@@ -64,7 +64,7 @@ module webapp 'webapp.bicep' = {
   }
 }
 
-module vm 'vm.bicep' = {
+module vm 'modules/vm.bicep' = {
   name: 'vm'
   scope: rgGroup
   params: {
@@ -79,7 +79,7 @@ module vm 'vm.bicep' = {
   ]
 }
 
-module bastion 'bastion.bicep' = {
+module bastion 'modules/bastion.bicep' = {
   name: project
   scope: rgGroup
   params: {
