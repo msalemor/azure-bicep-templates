@@ -1,28 +1,38 @@
 targetScope = 'subscription'
 
-param rgName string = 'rg-havas-poc-eus'
 param location string = 'eastus'
 param project string = 'havas'
+// min 0, max 254
+param version string = '12'
 param environment string = 'poc'
 param shortloc string = 'eus'
+param vmUserName string = 'alex'
 @secure()
 @minLength(15)
 param adminPassword string
 
-var longdesc = '${project}-${environment}-${shortloc}'
-var shortdesc = '${project}${environment}${shortloc}'
+var longdesc = '${project}${version}-${environment}-${shortloc}'
+var shortdesc = '${project}${version}${environment}${shortloc}'
 
+var rgName = 'rg-${longdesc}'
 var managedInstanceName = 'sqlmi${shortdesc}'
 var virtualNetworkName = 'vnet-${longdesc}'
 var networkSecurityGroupName = 'nsg-${longdesc}'
 var routeTableName = 'rt-${longdesc}'
 var subnetName = 'ManagedInstance'
 var azureBastionSubnet = 'AzureBastionSubnet'
+var vnetPrefix = '10.${version}'
+
+var tags = {
+  Project: project
+  Environment: environment
+}
 
 // resource group created in target subscription
 resource rgGroup 'Microsoft.Resources/resourceGroups@2020-10-01' = {
   name: rgName
   location: location
+  tags: tags
 }
 
 module vnet 'modules/vnet.bicep' = {
@@ -35,6 +45,7 @@ module vnet 'modules/vnet.bicep' = {
     networkSecurityGroupName: networkSecurityGroupName
     routeTableName: routeTableName
     azureBastionSubnet: azureBastionSubnet
+    vnetPrefix: vnetPrefix
   }
 }
 
@@ -59,7 +70,7 @@ module webapp 'modules/webapp.bicep' = {
   params: {
     location: location
     appServicePlanName: 'asp${shortdesc}'
-    appName: 'webapp${shortdesc}'
+    appName: 'asp-${longdesc}'
     subnetId: vnet.outputs.beSubnetID
   }
 }
@@ -70,7 +81,7 @@ module vm 'modules/vm.bicep' = {
   params: {
     vmName: 'vm${shortdesc}'
     location: location
-    adminUsername: 'admin'
+    adminUsername: vmUserName
     adminPassword: adminPassword
     virtualNetworkName: virtualNetworkName
   }
@@ -85,6 +96,7 @@ module bastion 'modules/bastion.bicep' = {
   params: {
     location: location
     name: 'bastionhost'
+    longdesc: longdesc
     virtualNetworkName: virtualNetworkName
     azureBastionSubnet: azureBastionSubnet
   }

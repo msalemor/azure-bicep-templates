@@ -1,19 +1,18 @@
-@description('Enter virtual network address prefix.')
-param addressPrefix string = '10.0.0.0/16'
 @description('Enter subnet name.')
 param sqlmiSubnetName string = 'ManagedInstance'
-@description('Enter subnet address prefix.')
-param sqlmiSubnet string = '10.0.0.0/24'
 param location string
 param networkSecurityGroupName string = 'nsgsqlmi'
 param routeTableName string = 'routsqlmi'
 param virtualNetworkName string = 'vnetsqlmi'
 param azureBastionSubnet string = 'AzureBastionSubnet'
+param vnetPrefix string = '10.0'
 
 // Variables
-var beSubnetPrefix = '10.0.1.0/28'
-var vmSubnetPrefix = '10.0.2.0/24'
-var bastionSubnet = '10.0.3.0/24'
+var vnetCIDR = '${vnetPrefix}.0.0/16'
+var sqlmiSubnet = '${vnetPrefix}.0.0/24'
+var beSubnetPrefix = '${vnetPrefix}.1.0/28'
+var vmSubnetPrefix = '${vnetPrefix}.2.0/24'
+var bastionSubnet = '${vnetPrefix}.3.0/24'
 
 resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2021-08-01' = {
   name: networkSecurityGroupName
@@ -96,7 +95,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2021-08-01' = {
   properties: {
     addressSpace: {
       addressPrefixes: [
-        addressPrefix
+        vnetCIDR
       ]
     }
     subnets: [

@@ -20,6 +20,7 @@ param skuName string = 'GP_Gen5'
 
 @description('Enter number of vCores.')
 @allowed([
+  4
   8
   16
   24
@@ -28,12 +29,12 @@ param skuName string = 'GP_Gen5'
   64
   80
 ])
-param vCores int = 8
+param vCores int = 4
 
 @description('Enter storage size.')
 @minValue(32)
 @maxValue(8192)
-param storageSizeInGB int = 32
+param storageSizeInGB int = 256
 
 @description('Enter license type.')
 @allowed([
@@ -46,6 +47,7 @@ param subnetName string
 
 resource managedInstance 'Microsoft.Sql/managedInstances@2021-11-01' = {
   name: managedInstanceName
+  clusterName: 'vc-${managedInstanceName}-${uniqueString(resourceGroup().id)})}'
   location: location
   sku: {
     name: skuName
